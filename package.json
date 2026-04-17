@@ -23,10 +23,6 @@
 			"types": "./index.d.ts",
 			"import": "./index.js"
 		},
-		"./vite": {
-			"types": "./vite.d.ts",
-			"import": "./vite.js"
-		},
 		"./package.json": "./package.json"
 	},
 	"types": "index.d.ts",
@@ -34,9 +30,7 @@
 		"files",
 		"index.js",
 		"utils.js",
-		"vite.js",
 		"index.d.ts",
-		"vite.d.ts",
 		"ambient.d.ts"
 	],
 	"scripts": {

@@ -11,6 +11,13 @@ declare module 'MANIFEST' {
 	export const base_path: string;
 }
 
+declare module 'USER_HANDLERS' {
+	type Handler = (...args: any[]) => any;
+	export const scheduled: Handler | undefined;
+	export const queue: Handler | undefined;
+	export const email: Handler | undefined;
+}
+
 type PartialExcept<T, K extends keyof T> = Partial<Omit<T, K>> & Required<Pick<T, K>>;
 
 /**

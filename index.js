@@ -320,9 +320,9 @@ function posixify(str) {
 }
 
 const USER_HANDLER_CANDIDATES = [
-	'src/hooks.cloudflare.js',
-	'src/hooks.cloudflare.ts',
-	'src/hooks.cloudflare.mjs'
+	'src/handlers.cloudflare.js',
+	'src/handlers.cloudflare.ts',
+	'src/handlers.cloudflare.mjs'
 ];
 
 /**

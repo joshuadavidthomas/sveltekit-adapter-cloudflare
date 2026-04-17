@@ -1,6 +1,7 @@
 import { Server } from 'SERVER';
 import { manifest, prerendered, base_path } from 'MANIFEST';
 import { env } from 'cloudflare:workers';
+import * as user_handlers from 'USER_HANDLERS';
 import * as Cache from 'worktop/cfw.cache';
 
 const server = new Server(manifest);
@@ -36,7 +37,24 @@ const initialized = server.init({
 	}
 });
 
+/**
+ * @template T
+ * @param {(...args: any[]) => any | undefined} handler
+ * @returns {((...args: any[]) => Promise<any>) | undefined}
+ */
+function wrap(handler) {
+	if (typeof handler !== 'function') return undefined;
+	return async (...args) => {
+		await initialized;
+		return handler(...args);
+	};
+}
+
 export default {
+	...(user_handlers.scheduled && { scheduled: wrap(user_handlers.scheduled) }),
+	...(user_handlers.queue && { queue: wrap(user_handlers.queue) }),
+	...(user_handlers.email && { email: wrap(user_handlers.email) }),
+
 	/**
 	 * @param {Request} req
 	 * @param {{ ASSETS: { fetch: typeof fetch } }} env

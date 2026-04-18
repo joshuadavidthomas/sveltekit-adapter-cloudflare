@@ -114,19 +114,6 @@ export default function (options = {}) {
 					`export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n\n` +
 					`export const base_path = ${JSON.stringify(builder.config.kit.paths.base)};\n`
 			);
-
-			// optional user handlers for non-fetch triggers (scheduled, queue, email).
-			// we write a stub when the convention file is absent so Wrangler can still
-			// resolve the import — the conditional spreads in worker.js drop the unused keys.
-			const user_handlers_src = find_user_handlers();
-			let user_handlers_import;
-			if (user_handlers_src) {
-				user_handlers_import = `./${posixify(path.relative(worker_dest_dir, path.resolve(user_handlers_src)))}`;
-			} else {
-				writeFileSync(`${tmp}/user-handlers-stub.js`, 'export {};\n');
-				user_handlers_import = `./${posixify(path.relative(worker_dest_dir, tmp))}/user-handlers-stub.js`;
-			}
-
 			builder.copy(`${files}/worker.js`, worker_dest, {
 				replace: {
 					// the paths returned by the Wrangler config might be Windows paths,
@@ -136,7 +123,6 @@ export default function (options = {}) {
 					// errors if a relative import looks like a package import
 					SERVER: `./${posixify(path.relative(worker_dest_dir, builder.getServerDirectory()))}/index.js`,
 					MANIFEST: `./${posixify(path.relative(worker_dest_dir, tmp))}/manifest.js`,
-					USER_HANDLERS: user_handlers_import,
 					ASSETS: assets_binding
 				}
 			});
@@ -317,18 +303,4 @@ function validate_wrangler_config(config_file = undefined) {
 /** @param {string} str */
 function posixify(str) {
 	return str.replace(/\\/g, '/');
-}
-
-const USER_HANDLER_CANDIDATES = [
-	'src/handlers.cloudflare.js',
-	'src/handlers.cloudflare.ts',
-	'src/handlers.cloudflare.mjs'
-];
-
-/**
- * Look for a user-supplied module that exports `scheduled`, `queue`, or `email` handlers.
- * @returns {string | undefined} relative path from cwd, or undefined if none exists
- */
-function find_user_handlers() {
-	return USER_HANDLER_CANDIDATES.find((candidate) => existsSync(candidate));
 }

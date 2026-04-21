@@ -73,6 +73,7 @@ export default function (options = {}) {
 
 			const files = fileURLToPath(new URL('./files', import.meta.url).href);
 			const tmp = builder.getBuildDirectory('cloudflare-tmp');
+			const handlers_entry = resolve_handlers_entry(builder, options.handlers);
 
 			builder.rimraf(dest);
 			builder.rimraf(worker_dest);
@@ -107,25 +108,24 @@ export default function (options = {}) {
 			}
 
 			// worker
-			const worker_dest_dir = path.dirname(worker_dest);
 			writeFileSync(
 				`${tmp}/manifest.js`,
 				`export const manifest = ${builder.generateManifest({ relativePath: path.posix.relative(tmp, builder.getServerDirectory()) })};\n\n` +
 					`export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n\n` +
 					`export const base_path = ${JSON.stringify(builder.config.kit.paths.base)};\n`
 			);
-			builder.copy(`${files}/worker.js`, worker_dest, {
-				replace: {
-					// the paths returned by the Wrangler config might be Windows paths,
-					// so we need to convert them to POSIX paths or else the backslashes
-					// will be interpreted as escape characters and create an incorrect import path.
-					// We also need to ensure the relative imports start with ./ since Wrangler
-					// errors if a relative import looks like a package import
-					SERVER: `./${posixify(path.relative(worker_dest_dir, builder.getServerDirectory()))}/index.js`,
-					MANIFEST: `./${posixify(path.relative(worker_dest_dir, tmp))}/manifest.js`,
-					ASSETS: assets_binding
-				}
-			});
+
+			if (handlers_entry) {
+				const base_worker_dest = `${tmp}/_worker.base.js`;
+				builder.copy(`${files}/worker.js`, base_worker_dest, {
+					replace: get_worker_replacements(builder, tmp, base_worker_dest, assets_binding)
+				});
+				write_handler_worker(worker_dest, base_worker_dest, handlers_entry);
+			} else {
+				builder.copy(`${files}/worker.js`, worker_dest, {
+					replace: get_worker_replacements(builder, tmp, worker_dest, assets_binding)
+				});
+			}
 			if (builder.hasServerInstrumentationFile?.()) {
 				builder.instrument?.({
 					entrypoint: worker_dest,
@@ -298,6 +298,85 @@ function validate_wrangler_config(config_file = undefined) {
 		wrangler_config,
 		building_for_cloudflare_pages
 	};
+}
+
+/**
+ * @param {Builder2_0_0} builder
+ * @param {string | undefined} entry
+ * @returns {string | undefined}
+ */
+function resolve_handlers_entry(builder, entry) {
+	if (entry) {
+		const resolved = path.resolve(entry);
+		if (!existsSync(resolved)) {
+			throw new Error(`Could not find Cloudflare handlers entry: ${entry}`);
+		}
+
+		return resolved;
+	}
+
+	const src = builder.config.kit.files.src;
+	for (const ext of builder.config.kit.moduleExtensions) {
+		const candidate = path.resolve(path.join(src, `handlers.cloudflare${ext}`));
+		if (existsSync(candidate)) {
+			return candidate;
+		}
+	}
+}
+
+/**
+ * @param {Builder2_0_0} builder
+ * @param {string} tmp
+ * @param {string} worker_dest
+ * @param {string} assets_binding
+ */
+function get_worker_replacements(builder, tmp, worker_dest, assets_binding) {
+	const worker_dest_dir = path.dirname(worker_dest);
+
+	return {
+		// the paths returned by the Wrangler config might be Windows paths,
+		// so we need to convert them to POSIX paths or else the backslashes
+		// will be interpreted as escape characters and create an incorrect import path.
+		// We also need to ensure the relative imports start with ./ since Wrangler
+		// errors if a relative import looks like a package import
+		SERVER: `./${posixify(path.relative(worker_dest_dir, builder.getServerDirectory()))}/index.js`,
+		MANIFEST: `./${posixify(path.relative(worker_dest_dir, tmp))}/manifest.js`,
+		ASSETS: assets_binding
+	};
+}
+
+/**
+ * @param {string} worker_dest
+ * @param {string} base_worker_dest
+ * @param {string} handlers_entry
+ */
+function write_handler_worker(worker_dest, base_worker_dest, handlers_entry) {
+	const worker_dest_dir = path.dirname(worker_dest);
+
+	writeFileSync(
+		worker_dest,
+		[
+			`import base from '${to_relative_import(worker_dest_dir, base_worker_dest)}';`,
+			`const handlers = await import('${to_relative_import(worker_dest_dir, handlers_entry)}');`,
+			'',
+			'export default {',
+			'\t...base,',
+			'\t...(handlers.scheduled && { scheduled: handlers.scheduled }),',
+			'\t...(handlers.queue && { queue: handlers.queue }),',
+			'\t...(handlers.email && { email: handlers.email })',
+			'};',
+			''
+		].join('\n')
+	);
+}
+
+/**
+ * @param {string} from
+ * @param {string} to
+ * @returns {string}
+ */
+function to_relative_import(from, to) {
+	return `./${posixify(path.relative(from, to))}`;
 }
 
 /** @param {string} str */

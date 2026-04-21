@@ -20,3 +20,16 @@ test('read from $app/server works', async ({ request }) => {
 	const response = await request.get('/read');
 	expect(await response.text()).toBe(content);
 });
+
+test('build output wires Cloudflare handlers without publishing the base worker', async () => {
+	test.skip(!!process.env.DEV, 'build output only exists in preview mode');
+
+	const worker = fs.readFileSync(path.resolve(__dirname, '../dist/index.js'), 'utf-8');
+
+	expect(worker).toContain('_worker.base.js');
+	expect(worker).toContain('handlers.cloudflare.js');
+	expect(fs.existsSync(path.resolve(__dirname, '../dist/public/_worker.base.js'))).toBe(false);
+	expect(
+		fs.existsSync(path.resolve(__dirname, '../.svelte-kit/cloudflare-tmp/_worker.base.js'))
+	).toBe(true);
+});

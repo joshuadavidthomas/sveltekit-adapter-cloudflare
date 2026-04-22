@@ -27,7 +27,11 @@ test('build output wires Cloudflare handlers without publishing the base worker'
 	const worker = fs.readFileSync(path.resolve(__dirname, '../dist/index.js'), 'utf-8');
 
 	expect(worker).toContain('_worker.base.js');
-	expect(worker).toContain('handlers.cloudflare.js');
+	expect(worker).toContain('worker-handlers.js');
+	expect(worker).not.toContain('handlers.cloudflare.js');
+	expect(worker).toContain('handlers.scheduled');
+	expect(worker).toContain('handlers.queue');
+	expect(worker).toContain('handlers.email');
 	expect(fs.existsSync(path.resolve(__dirname, '../dist/public/_worker.base.js'))).toBe(false);
 	expect(
 		fs.existsSync(path.resolve(__dirname, '../.svelte-kit/cloudflare-tmp/_worker.base.js'))

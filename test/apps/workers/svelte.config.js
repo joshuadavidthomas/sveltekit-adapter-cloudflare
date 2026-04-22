@@ -4,7 +4,8 @@ import adapter from '../../../index.js';
 const config = {
 	kit: {
 		adapter: adapter({
-			config: 'config/wrangler.jsonc'
+			config: 'config/wrangler.jsonc',
+			handlers: 'src/worker-handlers.js'
 		})
 	}
 };

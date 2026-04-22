@@ -12,12 +12,12 @@
 		"test": "pnpm test:dev && pnpm test:build"
 	},
 	"devDependencies": {
-		"@sveltejs/kit": "workspace:^",
-		"@sveltejs/vite-plugin-svelte": "catalog:",
+		"@sveltejs/kit": "^2.57.1",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"server-side-dep": "file:server-side-dep",
-		"svelte": "catalog:",
-		"vite": "catalog:",
-		"wrangler": "catalog:"
+		"svelte": "^5.55.4",
+		"vite": "^7.3.2",
+		"wrangler": "^4.84.1"
 	},
 	"type": "module"
 }

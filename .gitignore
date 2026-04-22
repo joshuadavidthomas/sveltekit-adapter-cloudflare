@@ -1,1 +1,7 @@
 /files
+node_modules
+.svelte-kit
+dist
+.wrangler
+test-results
+playwright-report

@@ -11,7 +11,7 @@ import {
 	parse_redirects
 } from './utils.js';
 
-const name = '@sveltejs/adapter-cloudflare';
+const name = '@joshthomas/sveltekit-adapter-cloudflare';
 const [kit_major, kit_minor] = VERSION.split('.');
 
 /** @type {import('./index.js').default} */

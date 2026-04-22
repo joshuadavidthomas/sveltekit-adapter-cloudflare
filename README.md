@@ -1,35 +1,73 @@
-# adapter-cloudflare
+# @joshthomas/sveltekit-adapter-cloudflare
 
-[Adapter](https://svelte.dev/docs/kit/building-your-app) for building SvelteKit applications on [Cloudflare Workers](https://developers.cloudflare.com/workers/) with [static assets](https://developers.cloudflare.com/workers/static-assets/) or [Cloudflare Pages](https://developers.cloudflare.com/pages/) with [Workers integration](https://developers.cloudflare.com/pages/functions/).
+Fork of [`@sveltejs/adapter-cloudflare`](https://www.npmjs.com/package/@sveltejs/adapter-cloudflare) that adds Cloudflare worker handler support for `scheduled`, `queue`, and `email` while leaving SvelteKit in control of `fetch`.
 
-## Docs
+This README is the canonical documentation for the fork-specific behavior. For the base adapter behavior, deployment model, and general Cloudflare adapter guidance, use the upstream SvelteKit docs as a reference.
 
-[Docs](https://svelte.dev/docs/kit/adapter-cloudflare)
+## Install
 
-## Cloudflare handlers
+```bash
+npm install -D @joshthomas/sveltekit-adapter-cloudflare
+```
 
-You can add Cloudflare-specific `scheduled`, `queue`, and `email` handlers to the generated worker with a convention file or an explicit adapter option.
+## Usage
 
 ```js
 // svelte.config.js
-import adapter from '@sveltejs/adapter-cloudflare';
+import adapter from '@joshthomas/sveltekit-adapter-cloudflare';
 
 export default {
-  kit: {
-    adapter: adapter({
-      handlers: 'src/handlers.cloudflare.js'
-    })
-  }
+	kit: {
+		adapter: adapter({
+			handlers: 'src/handlers.cloudflare.js'
+		})
+	}
 };
+```
 
+```js
 // src/handlers.cloudflare.js
 export function scheduled(controller, env, ctx) {
-  ctx.waitUntil(Promise.resolve());
+	ctx.waitUntil(Promise.resolve(`${controller.cron}:${String(!!env)}`));
+}
+
+export function queue(batch, env, ctx) {
+	ctx.waitUntil(Promise.resolve(`${batch.messages.length}:${String(!!env)}`));
+}
+
+export async function email(message, env, ctx) {
+	ctx.waitUntil(Promise.resolve(`${message.from}:${String(!!env)}`));
 }
 ```
 
-If `handlers` is omitted, the adapter looks for `src/handlers.cloudflare.<ext>` using the extensions from `kit.moduleExtensions`.
+The handler file can export any subset of:
+- `scheduled`
+- `queue`
+- `email`
+
+If `handlers` is omitted, the adapter looks for `<kit.files.src>/handlers.cloudflare.<ext>` using `kit.moduleExtensions`.
+
+## Contract
+
+- SvelteKit still owns `fetch`.
+- The handler file augments the generated worker; it does not replace the worker entrypoint.
+- This fork does not add a custom `fetch` escape hatch or a separate worker-definition API.
+
+## Development note
+
+These handlers are part of the generated Cloudflare worker output. They do **not** run in plain `vite dev`.
+
+To test handler behavior locally, use the Cloudflare runtime path:
+- `wrangler dev`
+- `wrangler pages dev`
+- the relevant preview/build flow for your Cloudflare target
+
+## Reference docs
+
+- Upstream adapter docs: https://svelte.dev/docs/kit/adapter-cloudflare
+- Cloudflare Workers docs: https://developers.cloudflare.com/workers/
+- Cloudflare Pages docs: https://developers.cloudflare.com/pages/
 
 ## Changelog
 
-[The Changelog for this package is available on GitHub](https://github.com/sveltejs/kit/blob/main/packages/adapter-cloudflare/CHANGELOG.md).
+See [`CHANGELOG.md`](./CHANGELOG.md).

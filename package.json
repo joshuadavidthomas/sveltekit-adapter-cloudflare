@@ -1,10 +1,11 @@
 {
-	"name": "@sveltejs/adapter-cloudflare",
-	"version": "7.2.8",
-	"description": "Adapts SvelteKit applications for Cloudflare Workers or Cloudflare Pages",
+	"name": "@joshthomas/sveltekit-adapter-cloudflare",
+	"version": "0.1.0",
+	"description": "Fork of @sveltejs/adapter-cloudflare with support for scheduled, queue, and email handlers",
 	"keywords": [
 		"adapter",
 		"cloudflare pages",
+		"cloudflare workers",
 		"deploy",
 		"hosting",
 		"svelte",
@@ -12,11 +13,16 @@
 	],
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/sveltejs/kit.git",
-		"directory": "packages/adapter-cloudflare"
+		"url": "git+https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare.git"
+	},
+	"bugs": {
+		"url": "https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/issues"
 	},
 	"license": "MIT",
-	"homepage": "https://svelte.dev/docs/kit/adapter-cloudflare",
+	"homepage": "https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare#readme",
+	"publishConfig": {
+		"access": "public"
+	},
 	"type": "module",
 	"exports": {
 		".": {
@@ -36,24 +42,25 @@
 	"scripts": {
 		"build": "esbuild src/worker.js --bundle --outfile=files/worker.js --external:SERVER --external:MANIFEST --external:cloudflare:workers --format=esm",
 		"lint": "prettier --check .",
-		"format": "pnpm lint --write",
+		"format": "prettier --write .",
 		"check": "tsc --skipLibCheck",
 		"test:unit": "vitest run",
 		"test:e2e": "pnpm build && pnpm -r --workspace-concurrency 1 --filter=\"./test/**\" test",
 		"test": "pnpm test:unit && pnpm test:e2e",
-		"prepublishOnly": "pnpm build"
+		"prepack": "pnpm build"
 	},
 	"dependencies": {
 		"@cloudflare/workers-types": "^4.20250507.0",
 		"worktop": "0.8.0-next.18"
 	},
 	"devDependencies": {
-		"@playwright/test": "catalog:",
-		"@sveltejs/kit": "workspace:^",
-		"@types/node": "catalog:",
-		"esbuild": "catalog:",
-		"typescript": "catalog:",
-		"vitest": "catalog:"
+		"@playwright/test": "^1.59.1",
+		"@sveltejs/kit": "^2.57.1",
+		"@types/node": "^25.6.0",
+		"esbuild": "^0.28.0",
+		"prettier": "^3.8.3",
+		"typescript": "^6.0.3",
+		"vitest": "^4.1.5"
 	},
 	"peerDependencies": {
 		"@sveltejs/kit": "^2.0.0",

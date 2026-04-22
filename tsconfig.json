@@ -6,11 +6,8 @@
 		"target": "es2022",
 		"module": "node16",
 		"moduleResolution": "node16",
-		"paths": {
-			"@sveltejs/kit": ["../kit/types/index"]
-		},
 		// taken from the Cloudflare Workers TypeScript template https://github.com/cloudflare/workers-sdk/blob/main/packages/create-cloudflare/templates/hello-world/ts/tsconfig.json
-		"lib": ["es2021"],
+		"lib": ["es2022"],
 		"types": ["node", "@cloudflare/workers-types"]
 	},
 	"include": [

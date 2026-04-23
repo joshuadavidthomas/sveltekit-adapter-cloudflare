@@ -73,7 +73,7 @@ export default function (options = {}) {
 
 			const files = fileURLToPath(new URL('./files', import.meta.url).href);
 			const tmp = builder.getBuildDirectory('cloudflare-tmp');
-			const handlers_entry = resolve_handlers_entry(builder, options.handlers);
+			const platform_entry = resolve_platform_entry(builder, options.platform);
 
 			builder.rimraf(dest);
 			builder.rimraf(worker_dest);
@@ -115,12 +115,12 @@ export default function (options = {}) {
 					`export const base_path = ${JSON.stringify(builder.config.kit.paths.base)};\n`
 			);
 
-			if (handlers_entry) {
+			if (platform_entry) {
 				const base_worker_dest = `${tmp}/_worker.base.js`;
 				builder.copy(`${files}/worker.js`, base_worker_dest, {
 					replace: get_worker_replacements(builder, tmp, base_worker_dest, assets_binding)
 				});
-				write_handler_worker(worker_dest, base_worker_dest, handlers_entry);
+				write_platform_worker(worker_dest, base_worker_dest, platform_entry);
 			} else {
 				builder.copy(`${files}/worker.js`, worker_dest, {
 					replace: get_worker_replacements(builder, tmp, worker_dest, assets_binding)
@@ -302,26 +302,36 @@ function validate_wrangler_config(config_file = undefined) {
 
 /**
  * @param {Builder2_0_0} builder
- * @param {string | undefined} entry
+ * @param {string | undefined} platform
  * @returns {string | undefined}
  */
-function resolve_handlers_entry(builder, entry) {
-	if (entry) {
-		const resolved = path.resolve(entry);
+function resolve_platform_entry(builder, platform) {
+	if (platform) {
+		const resolved = path.resolve(platform);
 		if (!existsSync(resolved)) {
-			throw new Error(`Could not find Cloudflare handlers entry: ${entry}`);
+			throw new Error(`Could not find Cloudflare platform entry: ${platform}`);
 		}
 
 		return resolved;
 	}
 
 	const src = builder.config.kit.files.src;
+	const matches = [];
+
 	for (const ext of builder.config.kit.moduleExtensions) {
-		const candidate = path.resolve(path.join(src, `handlers.cloudflare${ext}`));
+		const candidate = path.resolve(path.join(src, `platform.cloudflare${ext}`));
 		if (existsSync(candidate)) {
-			return candidate;
+			matches.push(candidate);
 		}
 	}
+
+	if (matches.length > 1) {
+		throw new Error(
+			`Found multiple Cloudflare platform files. Keep only one of:\n${matches.map((match) => `- ${match}`).join('\n')}`
+		);
+	}
+
+	return matches[0];
 }
 
 /**
@@ -348,22 +358,25 @@ function get_worker_replacements(builder, tmp, worker_dest, assets_binding) {
 /**
  * @param {string} worker_dest
  * @param {string} base_worker_dest
- * @param {string} handlers_entry
+ * @param {string} platform_entry
  */
-function write_handler_worker(worker_dest, base_worker_dest, handlers_entry) {
+function write_platform_worker(worker_dest, base_worker_dest, platform_entry) {
 	const worker_dest_dir = path.dirname(worker_dest);
+	const platform_import = to_relative_import(worker_dest_dir, platform_entry);
 
 	writeFileSync(
 		worker_dest,
 		[
 			`import base from '${to_relative_import(worker_dest_dir, base_worker_dest)}';`,
-			`const handlers = await import('${to_relative_import(worker_dest_dir, handlers_entry)}');`,
+			`import * as platform from '${platform_import}';`,
+			`export * from '${platform_import}';`,
 			'',
 			'export default {',
 			'\t...base,',
-			'\t...(handlers.scheduled && { scheduled: handlers.scheduled }),',
-			'\t...(handlers.queue && { queue: handlers.queue }),',
-			'\t...(handlers.email && { email: handlers.email })',
+			'\t...(platform.scheduled && { scheduled: platform.scheduled }),',
+			'\t...(platform.queue && { queue: platform.queue }),',
+			'\t...(platform.email && { email: platform.email }),',
+			'\t...(platform.tail && { tail: platform.tail })',
 			'};',
 			''
 		].join('\n')

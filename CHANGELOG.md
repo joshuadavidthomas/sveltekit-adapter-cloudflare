@@ -20,6 +20,10 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed esbuild `import-is-undefined` warnings against the generated worker when the platform file doesn't define every handler slot.
+
 ## [0.2.0]
 
 ### Added

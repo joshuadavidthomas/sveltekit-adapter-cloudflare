@@ -55,7 +55,7 @@ export async function email(message, env, ctx) {
 
 The adapter re-exports everything from this file and merges any `scheduled`, `queue`, `email`, or `tail` exports into the generated worker's default export. It does not replace SvelteKit's `fetch` handler.
 
-See the Cloudflare docs for [`scheduled`](https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/), [`queue`](https://developers.cloudflare.com/queues/configuration/javascript-apis/#consumer), [`email`](https://developers.cloudflare.com/email-routing/email-workers/runtime-api/), and [`tail`](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/).
+See the Cloudflare docs for handler signatures — [`scheduled`](https://developers.cloudflare.com/workers/runtime-apis/handlers/scheduled/), [`queue`](https://developers.cloudflare.com/queues/configuration/javascript-apis/#consumer), [`email`](https://developers.cloudflare.com/email-routing/email-workers/runtime-api/), [`tail`](https://developers.cloudflare.com/workers/runtime-apis/handlers/tail/) — and for class-based exports: [Durable Objects](https://developers.cloudflare.com/durable-objects/), [`WorkerEntrypoint`](https://developers.cloudflare.com/workers/runtime-apis/bindings/service-bindings/rpc/), and [Workflows](https://developers.cloudflare.com/workflows/).
 
 The adapter discovers platform files automatically by looking for `platform.cloudflare.<ext>` in `kit.files.src` using `kit.moduleExtensions`. If you want to use a different file, pass it explicitly:
 

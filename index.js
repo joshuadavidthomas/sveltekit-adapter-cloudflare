@@ -368,8 +368,8 @@ function write_platform_worker(worker_dest, base_worker_dest, platform_entry) {
 		worker_dest,
 		[
 			`import base from '${to_relative_import(worker_dest_dir, base_worker_dest)}';`,
-			`import * as platform from '${platform_import}';`,
 			`export * from '${platform_import}';`,
+			`const platform = await import('${platform_import}');`,
 			'',
 			'export default {',
 			'\t...base,',

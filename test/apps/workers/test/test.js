@@ -30,6 +30,7 @@ test('build output wires Cloudflare handlers without publishing the base worker'
 	expect(worker).toContain('custom-platform.js');
 	expect(worker).not.toContain('platform.cloudflare.js');
 	expect(worker).toContain('export * from');
+	expect(worker).not.toContain('import * as platform');
 	expect(worker).toContain('platform.scheduled');
 	expect(worker).toContain('platform.queue');
 	expect(worker).toContain('platform.email');

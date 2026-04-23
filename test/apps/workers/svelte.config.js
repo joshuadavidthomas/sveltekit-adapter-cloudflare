@@ -5,7 +5,7 @@ const config = {
 	kit: {
 		adapter: adapter({
 			config: 'config/wrangler.jsonc',
-			handlers: 'src/worker-handlers.js'
+			platform: 'src/custom-platform.js'
 		})
 	}
 };

@@ -67,12 +67,14 @@ export interface AdapterOptions {
 	platformProxy?: GetPlatformProxyOptions;
 
 	/**
-	 * Override the convention-file path for Cloudflare-specific `scheduled`,
-	 * `queue`, and `email` handlers. Defaults to whichever
-	 * `src/handlers.cloudflare.<ext>` exists, where `<ext>` iterates over
-	 * `kit.moduleExtensions`.
+	 * Override the convention-file path for Cloudflare-specific platform
+	 * extensions. The file may export any subset of the handler functions
+	 * `scheduled`, `queue`, `email`, and `tail`, plus named exports such as
+	 * Durable Object classes, WorkerEntrypoint classes, and WorkflowEntrypoint
+	 * classes. Defaults to whichever `src/platform.cloudflare.<ext>` exists,
+	 * where `<ext>` iterates over `kit.moduleExtensions`.
 	 */
-	handlers?: string;
+	platform?: string;
 }
 
 /**

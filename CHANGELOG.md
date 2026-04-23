@@ -20,6 +20,8 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 
 ## [Unreleased]
 
+## [0.2.1]
+
 ### Fixed
 
 - Fixed esbuild `import-is-undefined` warnings against the generated worker when the platform file doesn't define every handler slot.
@@ -44,6 +46,7 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 - Added convention-based handler discovery via `<kit.files.src>/handlers.cloudflare.<ext>`.
 - Added explicit `handlers: 'path/to/file'` adapter option to override the convention path.
 
-[Unreleased]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/compare/v0.2.1...HEAD
 [0.1.0]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.1.0
 [0.2.0]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.2.0
+[0.2.1]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.2.1

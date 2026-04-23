@@ -17,10 +17,12 @@ test('build output wires Cloudflare handlers without publishing the base worker'
 	);
 
 	expect(worker).toContain('_worker.base.js');
-	expect(worker).toContain('handlers.cloudflare.js');
-	expect(worker).toContain('handlers.scheduled');
-	expect(worker).toContain('handlers.queue');
-	expect(worker).toContain('handlers.email');
+	expect(worker).toContain('platform.cloudflare.js');
+	expect(worker).toContain('export * from');
+	expect(worker).toContain('platform.scheduled');
+	expect(worker).toContain('platform.queue');
+	expect(worker).toContain('platform.email');
+	expect(worker).toContain('platform.tail');
 	expect(fs.existsSync(path.resolve(__dirname, '../.svelte-kit/cloudflare/_worker.base.js'))).toBe(
 		false
 	);

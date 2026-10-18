@@ -5,3 +5,4 @@ dist
 .wrangler
 test-results
 playwright-report
+.amp/portals/*

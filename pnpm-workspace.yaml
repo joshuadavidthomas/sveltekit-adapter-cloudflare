@@ -1,3 +1,7 @@
 packages:
   - .
   - test/apps/*
+allowBuilds:
+  esbuild: true
+  sharp: false
+  workerd: true

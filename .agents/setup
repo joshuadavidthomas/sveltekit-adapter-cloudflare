@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Prepares an Amp orb for this repository: dependencies, the adapter build, and
+# Playwright's Chromium for the e2e suites. Safe to rerun on a restored snapshot.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() {
+	local label=$1
+	shift
+	local start=$SECONDS
+	echo "==> $label"
+	"$@"
+	echo "<== $label ($((SECONDS - start))s)"
+}
+
+install_dependencies() {
+	pnpm install --frozen-lockfile
+}
+
+build_adapter() {
+	# Produces files/worker.js, which the adapter and the e2e apps import.
+	pnpm build
+}
+
+install_browser_system_deps() {
+	local apt_command packages missing=()
+	apt_command="$(pnpm --silent exec playwright install-deps --dry-run chromium | grep -- 'apt-get install')"
+	read -ra packages <<<"${apt_command##*--no-install-recommends }"
+	packages=("${packages[@]%\"}")
+	for package in "${packages[@]}"; do
+		dpkg-query -W -f='${Status}' "$package" 2>/dev/null | grep -q 'install ok installed' || missing+=("$package")
+	done
+	if ((${#missing[@]} == 0)); then
+		echo "all ${#packages[@]} packages already installed"
+		return
+	fi
+	sudo apt-get update -qq
+	sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq --no-install-recommends "${missing[@]}"
+}
+
+install_browsers() {
+	# `playwright install` hangs while extracting on Node 26 (its bundled unzip
+	# never resolves), so fetch and unpack the same archives it would use.
+	local location url
+	while read -r location url; do
+		if [[ -f "$location/INSTALLATION_COMPLETE" ]]; then
+			echo "already installed: $location"
+			continue
+		fi
+		echo "downloading $url"
+		local archive
+		archive="$(mktemp --suffix=.zip)"
+		curl -fsSL --retry 3 -o "$archive" "$url"
+		rm -rf "$location"
+		mkdir -p "$location"
+		unzip -q "$archive" -d "$location"
+		rm -f "$archive"
+		touch "$location/INSTALLATION_COMPLETE"
+	done < <(pnpm --silent exec playwright install --dry-run chromium | awk '
+		/Install location:/ { location = $3 }
+		/Download url:/ { print location, $3 }
+	')
+}
+
+step "pnpm install" install_dependencies
+step "build adapter" build_adapter
+step "playwright system deps" install_browser_system_deps
+step "playwright browsers" install_browsers

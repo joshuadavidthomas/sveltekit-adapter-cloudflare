@@ -20,6 +20,26 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 
 ## [Unreleased]
 
+### Added
+
+- Added emulation of the `cloudflare:workers` module during `vite dev` and `vite preview`, from upstream 8.x. `import { env } from 'cloudflare:workers'` now works in dev.
+- Added `Request.cf` during `vite dev` and `vite preview` through the `vite.getRequest` adapter hook, from upstream 8.x.
+
+### Changed
+
+- **Breaking:** Rebased the fork on `@sveltejs/adapter-cloudflare` `8.0.1`. It now requires SvelteKit 3 (`@sveltejs/kit` `^3.0.0-next.0`) and Wrangler `^4.118.0`, and is passed to the SvelteKit Vite plugin (`sveltekit({ adapter })`) like the upstream adapter. See the [upstream 8.0.0 changelog](https://github.com/sveltejs/kit/blob/main/packages/adapter-cloudflare/CHANGELOG.md#800) for the rest of what changed, such as Workers Caching replacing the Cache API and `builder.generateServerInstance` replacing `builder.generateManifest`.
+- Bumped `@cloudflare/workers-types` to `^5.20260925.1` and replaced `worktop` with `@rolldown/pluginutils`, as upstream did.
+- The platform file is now discovered in `files.src` using `moduleExtensions`, the SvelteKit 3 names for `kit.files.src` and `kit.moduleExtensions`.
+
+### Removed
+
+- **Breaking:** Removed SvelteKit's `platform` (`env`, `ctx`, `context`, `caches`, `cf`), as upstream 8.x did. Use `env` and `waitUntil` from `cloudflare:workers`, `request.cf`, and the global `caches` instead. Handlers in the platform file are unaffected.
+
+### Fixed
+
+- Fixed `vite build` failing on SvelteKit 3 with `adapter_generate_manifest_removed`, and the `adapter_config_kit_deprecated` warning.
+- Fixed named platform-file exports (such as Durable Object classes) being dropped from the worker when `instrumentation.server.js` is used.
+
 ## [0.2.1]
 
 ### Fixed

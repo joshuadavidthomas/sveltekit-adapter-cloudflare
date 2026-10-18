@@ -1,5 +1,7 @@
-import { VERSION } from '@sveltejs/kit';
-import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+/** @import { Plugin } from 'vite' */
+/** @import { GetPlatformProxyOptions } from 'wrangler' */
+
+import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -8,36 +10,40 @@ import {
 	is_building_for_cloudflare_pages,
 	validate_worker_settings,
 	get_routes_json,
-	parse_redirects
+	parse_redirects,
+	append_headers
 } from './utils.js';
+import { exactRegex } from '@rolldown/pluginutils';
+import { getRequest } from '@sveltejs/kit/node';
 
 const name = '@joshthomas/sveltekit-adapter-cloudflare';
-const [kit_major, kit_minor] = VERSION.split('.');
 
-/** @type {import('./index.js').default} */
+/** @type {typeof import('./index.js').default} */
 export default function (options = {}) {
+	// Add a random query so we can reliably string-replace the stub
+	const stub_import =
+		import.meta.resolve('./src/virtual-cloudflare-workers.js') + '?' + crypto.randomUUID();
 	return {
 		name,
-		/** @param {Builder2_0_0} builder */
 		async adapt(builder) {
 			if (
-				existsSync('_routes.json') ||
-				existsSync(`${builder.config.kit.files.assets}/_routes.json`)
+				fs.existsSync('_routes.json') ||
+				fs.existsSync(`${builder.config.files.assets}/_routes.json`)
 			) {
 				throw new Error(
-					"Cloudflare Pages' _routes.json should be configured in svelte.config.js. See https://svelte.dev/docs/kit/adapter-cloudflare#Options-routes"
+					"Cloudflare Pages' _routes.json should be configured from the adapter option of the SvelteKit plugin in your vite.config.js. See https://svelte.dev/docs/kit/adapter-cloudflare#Options-routes"
 				);
 			}
 
-			if (existsSync(`${builder.config.kit.files.assets}/_headers`)) {
+			if (fs.existsSync(`${builder.config.files.assets}/_headers`)) {
 				throw new Error(
-					`The _headers file should be placed in the project root rather than the ${builder.config.kit.files.assets} directory`
+					`The _headers file should be placed in the project root rather than the ${builder.config.files.assets} directory`
 				);
 			}
 
-			if (existsSync(`${builder.config.kit.files.assets}/_redirects`)) {
+			if (fs.existsSync(`${builder.config.files.assets}/_redirects`)) {
 				throw new Error(
-					`The _redirects file should be placed in the project root rather than the ${builder.config.kit.files.assets} directory`
+					`The _redirects file should be placed in the project root rather than the ${builder.config.files.assets} directory`
 				);
 			}
 
@@ -75,15 +81,17 @@ export default function (options = {}) {
 			const tmp = builder.getBuildDirectory('cloudflare-tmp');
 			const platform_entry = resolve_platform_entry(builder, options.platform);
 
-			builder.rimraf(dest);
-			builder.rimraf(worker_dest);
+			fs.rmSync(dest, { force: true, recursive: true });
+			fs.rmSync(worker_dest, { force: true, recursive: true });
 
-			builder.mkdirp(dest);
-			builder.mkdirp(tmp);
+			fs.mkdirSync(dest, { recursive: true });
+			fs.mkdirSync(tmp, { recursive: true });
+
+			replace_stub(builder.getServerDirectory(), stub_import);
 
 			// client assets and prerendered pages
-			const assets_dest = `${dest}${builder.config.kit.paths.base}`;
-			builder.mkdirp(assets_dest);
+			const assets_dest = `${dest}${builder.config.paths.base}`;
+			fs.mkdirSync(assets_dest, { recursive: true });
 			if (
 				building_for_cloudflare_pages ||
 				wrangler_config.assets?.not_found_handling === '404-page'
@@ -95,7 +103,7 @@ export default function (options = {}) {
 				if (options.fallback === 'spa') {
 					await builder.generateFallback(fallback);
 				} else {
-					writeFileSync(fallback, 'Not Found');
+					fs.writeFileSync(fallback, 'Not Found');
 				}
 			}
 			const client_assets = builder.writeClient(assets_dest);
@@ -108,47 +116,72 @@ export default function (options = {}) {
 			}
 
 			// worker
-			writeFileSync(
-				`${tmp}/manifest.js`,
-				`export const manifest = ${builder.generateManifest({ relativePath: path.posix.relative(tmp, builder.getServerDirectory()) })};\n\n` +
-					`export const prerendered = new Set(${JSON.stringify(builder.prerendered.paths)});\n\n` +
-					`export const base_path = ${JSON.stringify(builder.config.kit.paths.base)};\n`
-			);
-
+			const worker_dest_dir = path.dirname(worker_dest);
+			// with a platform file, the SvelteKit worker becomes a base module that
+			// a generated entrypoint wraps, so it must not land in the assets directory
+			const base_worker_dest = platform_entry ? `${tmp}/_worker.base.js` : worker_dest;
+			builder.generateServerInstance(`${tmp}/server.js`);
+			builder.copy(`${files}/worker.js`, base_worker_dest, {
+				replace: {
+					// the paths returned by the Wrangler config might be Windows paths,
+					// so we need to convert them to POSIX paths or else the backslashes
+					// will be interpreted as escape characters and create an incorrect import path.
+					// We also need to ensure the relative imports start with ./ since Wrangler
+					// errors if a relative import looks like a package import
+					SERVER: `${to_relative_import(path.dirname(base_worker_dest), tmp)}/server.js`,
+					BASE_PATH: JSON.stringify(builder.config.paths.base),
+					APP_PATH: JSON.stringify(builder.getAppPath()),
+					MANIFEST_ASSETS: `new Set(${JSON.stringify(builder.manifest.assets.map((a) => a.path))})`,
+					PRERENDERED: `new Set(${JSON.stringify(builder.prerendered.paths)})`,
+					ASSETS_BINDING: assets_binding
+				}
+			});
 			if (platform_entry) {
-				const base_worker_dest = `${tmp}/_worker.base.js`;
-				builder.copy(`${files}/worker.js`, base_worker_dest, {
-					replace: get_worker_replacements(builder, tmp, base_worker_dest, assets_binding)
-				});
 				write_platform_worker(worker_dest, base_worker_dest, platform_entry);
-			} else {
-				builder.copy(`${files}/worker.js`, worker_dest, {
-					replace: get_worker_replacements(builder, tmp, worker_dest, assets_binding)
-				});
 			}
-			if (builder.hasServerInstrumentationFile?.()) {
-				builder.instrument?.({
+			if (builder.hasServerInstrumentationFile()) {
+				const initializer = builder.createInstrumentationInitializer({
+					outputDirectory: worker_dest_dir,
+					environment: `import { env } from 'cloudflare:workers';\nexport default env;\n`
+				});
+				builder.instrument({
 					entrypoint: worker_dest,
-					instrumentation: `${builder.getServerDirectory()}/instrumentation.server.js`
+					instrumentation: `${builder.getServerDirectory()}/instrumentation.server.js`,
+					initializer,
+					module: platform_entry
+						? {
+								// the default facade only re-exports `default`, which would drop
+								// the platform file's named exports such as Durable Object classes
+								generateText: ({ instrumentation, start, initializer }) =>
+									create_platform_instrumentation_facade({
+										instrumentation,
+										start,
+										initializer,
+										platform: to_relative_import(worker_dest_dir, platform_entry)
+									})
+							}
+						: undefined
 				});
 			}
 
 			// _headers
 			const headers_src = '_headers';
 			const headers_dest = `${dest}/_headers`;
-			if (existsSync(headers_src)) {
-				copyFileSync(headers_src, headers_dest);
+			/** @type {string | undefined} */
+			let headers;
+			if (fs.existsSync(headers_src)) {
+				headers = fs.readFileSync(headers_src, 'utf-8');
 			}
-			writeFileSync(headers_dest, generate_headers(builder.getAppPath()), { flag: 'a' });
+			fs.writeFileSync(headers_dest, generate_headers(builder.getAppPath(), headers));
 
 			// _redirects
 			const redirects_src = '_redirects';
 			const redirects_dest = `${dest}/_redirects`;
-			if (existsSync(redirects_src)) {
-				copyFileSync(redirects_src, redirects_dest);
+			if (fs.existsSync(redirects_src)) {
+				fs.copyFileSync(redirects_src, redirects_dest);
 			}
 			if (builder.prerendered.redirects.size > 0) {
-				writeFileSync(redirects_dest, generate_redirects(builder.prerendered.redirects), {
+				fs.writeFileSync(redirects_dest, generate_redirects(builder.prerendered.redirects), {
 					flag: 'a'
 				});
 			}
@@ -161,12 +194,12 @@ export default function (options = {}) {
 				// Worker but instead let the rules in the `_redirects` file take over.
 				/** @type {string[]} */
 				let redirects = [];
-				if (existsSync(redirects_dest)) {
-					const redirect_rules = readFileSync(redirects_dest, 'utf8');
+				if (fs.existsSync(redirects_dest)) {
+					const redirect_rules = fs.readFileSync(redirects_dest, 'utf8');
 					redirects = parse_redirects(redirect_rules);
 				}
 
-				writeFileSync(
+				fs.writeFileSync(
 					`${dest}/_routes.json`,
 					JSON.stringify(
 						get_routes_json(builder, client_assets, redirects, options.routes ?? {}),
@@ -175,75 +208,114 @@ export default function (options = {}) {
 					)
 				);
 			} else {
-				writeFileSync(`${dest}/.assetsignore`, generate_assetsignore(), { flag: 'a' });
+				fs.writeFileSync(`${dest}/.assetsignore`, generate_assetsignore(), { flag: 'a' });
 			}
 		},
-		emulate() {
-			// we want to invoke `getPlatformProxy` only once, but await it only when it is accessed.
-			// If we would await it here, it would hang indefinitely because the platform proxy only resolves once a request happens
-			const get_emulated = async () => {
-				const proxy = await getPlatformProxy(options.platformProxy);
-				const platform = /** @type {App.Platform} */ ({
-					env: proxy.env,
-					ctx: proxy.ctx,
-					context: proxy.ctx, // deprecated in favor of ctx
-					caches: proxy.caches,
-					cf: proxy.cf
-				});
-				/** @type {Record<string, any>} */
-				const env = {};
-				const prerender_platform = /** @type {App.Platform} */ (/** @type {unknown} */ ({ env }));
-				for (const key in proxy.env) {
-					Object.defineProperty(env, key, {
-						get: () => {
-							throw new Error(`Cannot access platform.env.${key} in a prerenderable route`);
-						}
-					});
-				}
-				return { platform, prerender_platform };
-			};
-
-			/** @type {{ platform: App.Platform, prerender_platform: App.Platform }} */
-			let emulated;
-
-			return {
-				platform: async ({ prerender }) => {
-					emulated ??= await get_emulated();
-					return prerender ? emulated.prerender_platform : emulated.platform;
-				}
-			};
-		},
 		supports: {
-			read: ({ route }) => {
-				// TODO bump peer dep in next adapter major to simplify this
-				if (kit_major === '2' && kit_minor < '25') {
-					throw new Error(
-						`${name}: Cannot use \`read\` from \`$app/server\` in route \`${route.id}\` when using SvelteKit < 2.25.0`
-					);
-				}
-
-				return true;
-			},
+			read: () => true,
 			instrumentation: () => true
+		},
+		vite: {
+			getRequest(options) {
+				const request = getRequest(options);
+				/** @type {import('@cloudflare/workers-types').Request} */ (
+					/** @type {unknown} */ (request)
+				).cf = globalThis.__sveltekit_cloudflare_platform?.cf;
+				return request;
+			},
+			plugins: [
+				virtual_workers_module(
+					{
+						configPath: options.config,
+						...options.platformProxy
+					},
+					stub_import
+				)
+			]
+		}
+	};
+}
+
+/**
+ * @param {GetPlatformProxyOptions} options
+ * @param {string} stub_import
+ * @returns {Plugin}
+ */
+function virtual_workers_module(options, stub_import) {
+	// shared so that concurrent servers start one proxy and only the last close disposes it
+	const setup = async () => {
+		const shared = (globalThis.__sveltekit_cloudflare_platform_setup ??= {
+			servers: 0,
+			proxy: getPlatformProxy(options)
+		});
+		shared.servers += 1;
+		try {
+			const proxy = await shared.proxy;
+			// We store the platform proxy on globalThis so that our virtual workers module
+			// can access the same instance that we use here to populate `caches` and `cf` (above).
+			globalThis.__sveltekit_cloudflare_platform = proxy;
+			// Deno defines `caches` with a getter and no setter, so assigning to it throws
+			Object.defineProperty(globalThis, 'caches', {
+				value: proxy.caches,
+				writable: true,
+				enumerable: true,
+				configurable: true
+			});
+		} catch (error) {
+			// let the next server retry
+			if (globalThis.__sveltekit_cloudflare_platform_setup === shared) {
+				globalThis.__sveltekit_cloudflare_platform_setup = undefined;
+			}
+			throw error;
+		}
+	};
+	const dispose = async () => {
+		const shared = globalThis.__sveltekit_cloudflare_platform_setup;
+		if (!shared) return;
+		shared.servers -= 1;
+		if (shared.servers > 0) return;
+		globalThis.__sveltekit_cloudflare_platform_setup = undefined;
+		globalThis.__sveltekit_cloudflare_platform = undefined;
+		await (await shared.proxy).dispose();
+	};
+	return {
+		name: 'vite-plugin-sveltekit-adapter-cloudflare-virtual-workers-module',
+		configureServer: setup,
+		configurePreviewServer: setup,
+		// a restarting server is set up before the old one closes, so the proxy survives
+		closeServer: dispose,
+		closePreviewServer: dispose,
+		resolveId: {
+			filter: { id: exactRegex('cloudflare:workers') },
+			handler() {
+				return {
+					id: stub_import,
+					external: true
+				};
+			}
 		}
 	};
 }
 
 /**
  * @param {string} app_dir
+ * @param {string | undefined} content existing `_headers` file content
  * @returns {string}
  */
-function generate_headers(app_dir) {
-	return `
-# === START AUTOGENERATED SVELTE IMMUTABLE HEADERS ===
-/${app_dir}/*
-  X-Robots-Tag: noindex
-	Cache-Control: no-cache
-/${app_dir}/immutable/*
-  ! Cache-Control
-	Cache-Control: public, immutable, max-age=31536000
-# === END AUTOGENERATED SVELTE IMMUTABLE HEADERS ===
-`.trimEnd();
+function generate_headers(app_dir, content = '') {
+	content = append_headers(
+		`/${app_dir}/*`,
+		['X-Robots-Tag: noindex', 'Cache-Control: no-cache'],
+		content
+	);
+
+	content = append_headers(
+		`/${app_dir}/immutable/*`,
+		['! Cache-Control', 'Cache-Control: public, immutable, max-age=31536000'],
+		content
+	);
+
+	return content;
 }
 
 /**
@@ -300,27 +372,54 @@ function validate_wrangler_config(config_file = undefined) {
 	};
 }
 
+/** @param {string} str */
+function posixify(str) {
+	return str.replace(/\\/g, '/');
+}
+
 /**
- * @param {Builder2_0_0} builder
+ *
+ * @param {string} directory
+ * @param {string} stub_import
+ */
+function replace_stub(directory, stub_import) {
+	// recurse, find stub_import, replace with "cloudflare:workers"
+	const files = fs.readdirSync(directory);
+	for (const file of files) {
+		const file_path = path.join(directory, file);
+		if (fs.statSync(file_path).isDirectory()) {
+			replace_stub(file_path, stub_import);
+		} else {
+			const contents = fs.readFileSync(file_path, 'utf8');
+			if (contents.includes(stub_import)) {
+				fs.writeFileSync(file_path, contents.replaceAll(stub_import, 'cloudflare:workers'));
+			}
+		}
+	}
+}
+
+
+/**
+ * @param {import('@sveltejs/kit').Builder} builder
  * @param {string | undefined} platform
  * @returns {string | undefined}
  */
 function resolve_platform_entry(builder, platform) {
 	if (platform) {
 		const resolved = path.resolve(platform);
-		if (!existsSync(resolved)) {
+		if (!fs.existsSync(resolved)) {
 			throw new Error(`Could not find Cloudflare platform entry: ${platform}`);
 		}
 
 		return resolved;
 	}
 
-	const src = builder.config.kit.files.src;
+	const src = builder.config.files.src;
 	const matches = [];
 
-	for (const ext of builder.config.kit.moduleExtensions) {
-		const candidate = path.resolve(path.join(src, `platform.cloudflare${ext}`));
-		if (existsSync(candidate)) {
+	for (const ext of builder.config.moduleExtensions) {
+		const candidate = path.resolve(src, `platform.cloudflare${ext}`);
+		if (fs.existsSync(candidate)) {
 			matches.push(candidate);
 		}
 	}
@@ -335,27 +434,8 @@ function resolve_platform_entry(builder, platform) {
 }
 
 /**
- * @param {Builder2_0_0} builder
- * @param {string} tmp
- * @param {string} worker_dest
- * @param {string} assets_binding
- */
-function get_worker_replacements(builder, tmp, worker_dest, assets_binding) {
-	const worker_dest_dir = path.dirname(worker_dest);
-
-	return {
-		// the paths returned by the Wrangler config might be Windows paths,
-		// so we need to convert them to POSIX paths or else the backslashes
-		// will be interpreted as escape characters and create an incorrect import path.
-		// We also need to ensure the relative imports start with ./ since Wrangler
-		// errors if a relative import looks like a package import
-		SERVER: `./${posixify(path.relative(worker_dest_dir, builder.getServerDirectory()))}/index.js`,
-		MANIFEST: `./${posixify(path.relative(worker_dest_dir, tmp))}/manifest.js`,
-		ASSETS: assets_binding
-	};
-}
-
-/**
+ * Writes the worker entrypoint that re-exports the platform file and merges its
+ * handlers into the SvelteKit worker's default export
  * @param {string} worker_dest
  * @param {string} base_worker_dest
  * @param {string} platform_entry
@@ -364,11 +444,13 @@ function write_platform_worker(worker_dest, base_worker_dest, platform_entry) {
 	const worker_dest_dir = path.dirname(worker_dest);
 	const platform_import = to_relative_import(worker_dest_dir, platform_entry);
 
-	writeFileSync(
+	fs.mkdirSync(worker_dest_dir, { recursive: true });
+	fs.writeFileSync(
 		worker_dest,
 		[
 			`import base from '${to_relative_import(worker_dest_dir, base_worker_dest)}';`,
 			`export * from '${platform_import}';`,
+			// a namespace import would make esbuild warn about handlers the file doesn't export
 			`const platform = await import('${platform_import}');`,
 			'',
 			'export default {',
@@ -384,15 +466,32 @@ function write_platform_worker(worker_dest, base_worker_dest, platform_entry) {
 }
 
 /**
+ * Like SvelteKit's default instrumentation facade, but also re-exports the platform
+ * file's named exports so that Cloudflare can find classes such as Durable Objects
+ * @param {{ instrumentation: string; start: string; initializer: string; platform: string }} paths
+ * @returns {string}
+ */
+function create_platform_instrumentation_facade({ instrumentation, start, initializer, platform }) {
+	return [
+		`import '${to_import_specifier(initializer)}';`,
+		`import '${to_import_specifier(instrumentation)}';`,
+		`export * from '${platform}';`,
+		`const start = await import('${to_import_specifier(start)}');`,
+		'export default start.default;',
+		''
+	].join('\n');
+}
+
+/**
  * @param {string} from
  * @param {string} to
  * @returns {string}
  */
 function to_relative_import(from, to) {
-	return `./${posixify(path.relative(from, to))}`;
+	return to_import_specifier(posixify(path.relative(from, to)));
 }
 
-/** @param {string} str */
-function posixify(str) {
-	return str.replace(/\\/g, '/');
+/** @param {string} specifier */
+function to_import_specifier(specifier) {
+	return specifier.startsWith('.') ? specifier : `./${specifier}`;
 }

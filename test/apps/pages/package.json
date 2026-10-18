@@ -5,17 +5,16 @@
 	"scripts": {
 		"dev": "vite dev",
 		"build": "vite build",
-		"preview": "wrangler pages dev .svelte-kit/cloudflare --port 8787 --compatibility-date=2026-04-22 --compatibility-flag=nodejs_compat",
-		"prepare": "svelte-kit sync || echo ''",
+		"preview": "wrangler pages dev .svelte-kit/cloudflare --port 8787 --compatibility-date=2026-06-24 --compatibility-flag=nodejs_compat",
 		"test": "playwright test"
 	},
 	"devDependencies": {
-		"@sveltejs/kit": "^2.57.1",
-		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@sveltejs/kit": "^3.1.0",
+		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"server-side-dep": "file:server-side-dep",
-		"svelte": "^5.55.4",
-		"vite": "^7.3.2",
-		"wrangler": "^4.84.1"
+		"svelte": "^5.57.1",
+		"vite": "^8.2.1",
+		"wrangler": "^4.151.1"
 	},
 	"type": "module"
 }

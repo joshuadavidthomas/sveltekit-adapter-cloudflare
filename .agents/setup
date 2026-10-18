@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Prepares an Amp orb for this repository: dependencies, the adapter build, and
-# Playwright's Chromium for the e2e suites. Safe to rerun on a restored snapshot.
+# Prepares an Amp orb for this repository: dependencies and Playwright's
+# Chromium for the e2e suites. Safe to rerun on a restored snapshot.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -16,11 +16,6 @@ step() {
 
 install_dependencies() {
 	pnpm install --frozen-lockfile
-}
-
-build_adapter() {
-	# Produces files/worker.js, which the adapter and the e2e apps import.
-	pnpm build
 }
 
 install_browser_system_deps() {
@@ -64,6 +59,5 @@ install_browsers() {
 }
 
 step "pnpm install" install_dependencies
-step "build adapter" build_adapter
 step "playwright system deps" install_browser_system_deps
 step "playwright browsers" install_browsers

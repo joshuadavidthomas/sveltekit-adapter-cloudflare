@@ -1,0 +1,22 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"useTabs": true,
+	"singleQuote": true,
+	"trailingComma": "none",
+	"printWidth": 100,
+	"sortPackageJson": false,
+	"svelte": {},
+	"ignorePatterns": [
+		"test/apps/workers/dist/**",
+		"**/CHANGELOG.md",
+		"**/vite.config.js.timestamp-*",
+		"**/node_modules",
+		"**/.svelte-kit",
+		"**/.wrangler",
+		"**/test-results",
+		"**/playwright-report",
+		".amp",
+		"pnpm-lock.yaml",
+		"pnpm-workspace.yaml"
+	]
+}

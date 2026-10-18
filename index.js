@@ -398,7 +398,6 @@ function replace_stub(directory, stub_import) {
 	}
 }
 
-
 /**
  * @param {import('@sveltejs/kit').Builder} builder
  * @param {string | undefined} platform

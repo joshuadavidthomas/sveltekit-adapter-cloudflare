@@ -12,7 +12,7 @@ This was requested upstream multiple times and at least partly explored there, b
 
 | Fork version | Upstream base                        | SvelteKit | Wrangler   |
 | ------------ | ------------------------------------ | --------- | ---------- |
-| unreleased   | `@sveltejs/adapter-cloudflare` 8.0.1 | 3.x       | `^4.118.0` |
+| 0.3.x        | `@sveltejs/adapter-cloudflare` 8.0.1 | 3.x       | `^4.118.0` |
 | 0.1.x–0.2.x  | `@sveltejs/adapter-cloudflare` 7.2.8 | 2.x       | `^4.0.0`   |
 
 ## Installation

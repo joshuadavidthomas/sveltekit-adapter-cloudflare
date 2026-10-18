@@ -20,6 +20,8 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### Added
 
 - Added emulation of the `cloudflare:workers` module during `vite dev` and `vite preview`, from upstream 8.x. `import { env } from 'cloudflare:workers'` now works in dev.
@@ -66,7 +68,8 @@ This changelog tracks fork-owned releases of `@joshthomas/sveltekit-adapter-clou
 - Added convention-based handler discovery via `<kit.files.src>/handlers.cloudflare.<ext>`.
 - Added explicit `handlers: 'path/to/file'` adapter option to override the convention path.
 
-[Unreleased]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/compare/v0.3.0...HEAD
 [0.1.0]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.1.0
 [0.2.0]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.2.0
 [0.2.1]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.2.1
+[0.3.0]: https://github.com/joshuadavidthomas/sveltekit-adapter-cloudflare/releases/tag/v0.3.0

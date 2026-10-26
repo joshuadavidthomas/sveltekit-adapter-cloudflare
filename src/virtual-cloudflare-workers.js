@@ -126,11 +126,17 @@ export function waitUntil() {}
 export const cache = {
 	purge() {
 		return Promise.resolve({ success: true, errors: [] });
+	},
+	invalidate() {
+		return Promise.resolve({ success: true, errors: [] });
 	}
 };
 class Span {
 	get isTraced() {
 		return false;
+	}
+	spanContext() {
+		return { traceId: '0'.repeat(32), spanId: '0'.repeat(16), traceFlags: 0 };
 	}
 	setAttribute() {
 		return this;

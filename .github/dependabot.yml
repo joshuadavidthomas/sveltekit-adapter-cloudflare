@@ -9,6 +9,11 @@ updates:
       timezone: America/Chicago
     cooldown:
       default-days: 7
+    ignore:
+      # SvelteKit 3.x requires typescript ^6 and uses its JS API, which TypeScript 7 removed
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
     labels:
       - dependabot 🤖
     groups:

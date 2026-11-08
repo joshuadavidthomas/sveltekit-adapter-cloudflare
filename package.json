@@ -55,7 +55,7 @@
 		"@playwright/test": "^1.59.1",
 		"@sveltejs/kit": "^3.1.0",
 		"@types/node": "^26.6.5",
-		"oxfmt": "^0.74.0",
+		"oxfmt": "^0.75.0",
 		"typescript": "^6.0.3",
 		"vite": "^8.2.1",
 		"vitest": "^5.0.1"
